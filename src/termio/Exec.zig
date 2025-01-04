@@ -1258,30 +1258,34 @@ const Subprocess = struct {
                     _ = try command.wait(false);
                 },
 
-                else => if (getpgid(pid)) |pgid| {
-                    // It is possible to send a killpg between the time that
-                    // our child process calls setsid but before or simultaneous
-                    // to calling execve. In this case, the direct child dies
-                    // but grandchildren survive. To work around this, we loop
-                    // and repeatedly kill the process group until all
-                    // descendents are well and truly dead. We will not rest
-                    // until the entire family tree is obliterated.
-                    while (true) {
-                        switch (posix.errno(c.killpg(pgid, c.SIGHUP))) {
-                            .SUCCESS => log.debug("process group killed pgid={}", .{pgid}),
-                            else => |err| killpg: {
-                                if ((comptime builtin.target.isDarwin()) and
-                                    err == .PERM)
-                                {
-                                    log.debug("killpg failed with EPERM, expected on Darwin and ignoring", .{});
-                                    break :killpg;
-                                }
+                else => {
+                    if (getpgid(pid)) |pgid| {
+                        // It is possible to send a killpg between the time that
+                        // our child process calls setsid but before or simultaneous
+                        // to calling execve. In this case, the direct child dies
+                        // but grandchildren survive. To work around this, we loop
+                        // and repeatedly kill the process group until all
+                        // descendents are well and truly dead. We will not rest
+                        // until the entire family tree is obliterated.
+                        while (true) {
+                            switch (posix.errno(c.killpg(pgid, c.SIGHUP))) {
+                                .SUCCESS => log.debug("process group killed pgid={}", .{pgid}),
+                                else => |err| {
+                                    if ((comptime builtin.target.isDarwin()) and
+                                        err == .PERM)
+                                    {
+                                        log.debug("killpg failed with EPERM, expected on Darwin and ignoring", .{});
+                                        break;
+                                    }
 
-                                log.warn("error killing process group pgid={} err={}", .{ pgid, err });
-                                return error.KillFailed;
-                            },
+                                    log.warn("error killing process group pgid={} err={}", .{ pgid, err });
+                                    return error.KillFailed;
+                                },
+                            }
                         }
+                    }
 
+                    while (true) {
                         // See Command.zig wait for why we specify WNOHANG.
                         // The gist is that it lets us detect when children
                         // are still alive without blocking so that we can
