@@ -173,7 +173,6 @@ pub fn threadExit(self: *Exec, td: *termio.Termio.ThreadData) void {
     assert(td.backend == .exec);
     const exec = &td.backend.exec;
 
-    if (exec.exited) self.subprocess.externalExit();
     self.subprocess.stop();
 
     // Quit our read thread after exiting the subprocess so that
@@ -1194,12 +1193,6 @@ const Subprocess = struct {
     fn childPreExec(self: *Subprocess) !void {
         // Setup our pty
         try self.pty.?.childPreExec();
-    }
-
-    /// Called to notify that we exited externally so we can unset our
-    /// running state.
-    pub fn externalExit(self: *Subprocess) void {
-        self.command = null;
     }
 
     /// Stop the subprocess. This is safe to call anytime. This will wait
