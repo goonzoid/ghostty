@@ -4,7 +4,6 @@ const builtin = @import("builtin");
 const xev = @import("xev");
 const apprt = @import("../apprt.zig");
 const renderer = @import("../renderer.zig");
-const Command = @import("../Command.zig");
 const Config = @import("../config.zig").Config;
 const termio = @import("../termio.zig");
 
