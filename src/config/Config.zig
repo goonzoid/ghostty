@@ -22,7 +22,6 @@ const inputpkg = @import("../input.zig");
 const terminal = @import("../terminal/main.zig");
 const internal_os = @import("../os/main.zig");
 const cli = @import("../cli.zig");
-const Command = @import("../Command.zig");
 
 const conditional = @import("conditional.zig");
 const Conditional = conditional.Conditional;
