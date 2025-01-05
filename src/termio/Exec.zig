@@ -1200,8 +1200,8 @@ const Subprocess = struct {
         try self.pty.?.childPreExec();
     }
 
-    /// Called to notify that we exited externally so we can unset our
-    /// running state.
+    /// Called to notify that we exited externally so we can call wait on the
+    /// process and unset our running state.
     pub fn externalExit(self: *Subprocess) void {
         if (self.command) |*cmd| {
             _ = cmd.wait(false) catch |err|
