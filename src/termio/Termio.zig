@@ -13,7 +13,6 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 const EnvMap = std.process.EnvMap;
 const posix = std.posix;
 const termio = @import("../termio.zig");
-const Command = @import("../Command.zig");
 const Pty = @import("../pty.zig").Pty;
 const StreamHandler = @import("stream_handler.zig").StreamHandler;
 const terminal = @import("../terminal/main.zig");

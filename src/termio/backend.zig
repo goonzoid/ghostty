@@ -11,7 +11,6 @@ const renderer = @import("../renderer.zig");
 const shell_integration = @import("shell_integration.zig");
 const terminal = @import("../terminal/main.zig");
 const termio = @import("../termio.zig");
-const Command = @import("../Command.zig");
 const Pty = @import("../pty.zig").Pty;
 
 // The preallocation size for the write request pool. This should be big
