@@ -352,7 +352,9 @@ pub fn wait(self: Command, block: bool) !Exit {
         return .{ .Exited = exit_code };
     }
 
-    const res = if (block) posix.waitpid(self.pid.?, 0) else res: {
+    if (block) {
+        _ = std.c.waitpid(self.pid.?, null, 0);
+    } else {
         // We specify NOHANG because its not our fault if the process we launch
         // for the tty doesn't properly waitpid its children. We don't want
         // to hang the terminal over it.
@@ -361,12 +363,13 @@ pub fn wait(self: Command, block: bool) !Exit {
         // wait call has not been performed, so we need to keep trying until we get
         // a non-zero pid back, otherwise we end up with zombie processes.
         while (true) {
-            const res = posix.waitpid(self.pid.?, std.c.W.NOHANG);
-            if (res.pid != 0) break :res res;
+            const pid = std.c.waitpid(self.pid.?, null, std.c.W.NOHANG);
+            // const res = posix.waitpid(self.pid.?, std.c.W.NOHANG);
+            if (pid != 0) break;
         }
-    };
+    }
 
-    return Exit.init(res.status);
+    return Exit.init(0);
 }
 
 /// Sets command->data to data.
