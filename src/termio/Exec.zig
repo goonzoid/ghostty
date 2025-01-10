@@ -1297,13 +1297,10 @@ const Subprocess = struct {
                             },
                         }
 
-                        // See Command.zig wait for why we specify WNOHANG.
-                        // The gist is that it lets us detect when children
-                        // are still alive without blocking so that we can
-                        // kill them again.
-                        const res = posix.waitpid(pid, std.c.W.NOHANG);
-                        log.debug("waitpid result={}", .{res.pid});
-                        if (res.pid != 0) break;
+                        const ret = command.wait(false);
+                        log.debug("wait result={}", .{ret});
+                        // 0 means the process is still running
+                        if (ret != 0) break;
                         std.time.sleep(10 * std.time.ns_per_ms);
                     }
                 },
