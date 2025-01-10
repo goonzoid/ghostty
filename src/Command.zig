@@ -81,34 +81,6 @@ pub const LinuxCgroup = if (builtin.os.tag == .linux) ?[]const u8 else void;
 pub const linux_cgroup_default = if (LinuxCgroup == void)
 {} else null;
 
-/// The various methods a process may exit.
-pub const Exit = if (builtin.os.tag == .windows) union(enum) {
-    Exited: u32,
-} else union(enum) {
-    /// Exited by normal exit call, value is exit status
-    Exited: u8,
-
-    /// Exited by a signal, value is the signal
-    Signal: u32,
-
-    /// Exited by a stop signal, value is signal
-    Stopped: u32,
-
-    /// Unknown exit reason, value is the status from waitpid
-    Unknown: u32,
-
-    pub fn init(status: u32) Exit {
-        return if (posix.W.IFEXITED(status))
-            Exit{ .Exited = posix.W.EXITSTATUS(status) }
-        else if (posix.W.IFSIGNALED(status))
-            Exit{ .Signal = posix.W.TERMSIG(status) }
-        else if (posix.W.IFSTOPPED(status))
-            Exit{ .Stopped = posix.W.STOPSIG(status) }
-        else
-            Exit{ .Unknown = status };
-    }
-};
-
 /// Start the subprocess. This returns immediately once the child is started.
 ///
 /// After this is successful, self.pid is available.
@@ -334,7 +306,7 @@ fn setupFd(src: File.Handle, target: i32) !void {
 }
 
 /// Wait for the command to exit and return information about how it exited.
-pub fn wait(self: Command, block: bool) !Exit {
+pub fn wait(self: Command, block: bool) i32 {
     if (comptime builtin.os.tag == .windows) {
         // Block until the process exits. This returns immediately if the
         // process already exited.
@@ -349,24 +321,14 @@ pub fn wait(self: Command, block: bool) !Exit {
             return windows.unexpectedError(windows.kernel32.GetLastError());
         }
 
-        return .{ .Exited = exit_code };
+        // If Windows exit codes can be larger than i32-MAX, this is potentially
+        // unsafe, but that seems very unlikely
+        return @intCast(exit_code);
     }
 
-    const res = if (block) posix.waitpid(self.pid.?, 0) else res: {
-        // We specify NOHANG because its not our fault if the process we launch
-        // for the tty doesn't properly waitpid its children. We don't want
-        // to hang the terminal over it.
-        // When NOHANG is specified, waitpid will return a pid of 0 if the process
-        // doesn't have a status to report. When that happens, it is as though the
-        // wait call has not been performed, so we need to keep trying until we get
-        // a non-zero pid back, otherwise we end up with zombie processes.
-        while (true) {
-            const res = posix.waitpid(self.pid.?, std.c.W.NOHANG);
-            if (res.pid != 0) break :res res;
-        }
-    };
-
-    return Exit.init(res.status);
+    var options: c_int = 0;
+    if (!block) options = std.c.W.NOHANG;
+    return std.c.waitpid(self.pid.?, null, options);
 }
 
 /// Sets command->data to data.
@@ -605,9 +567,8 @@ test "Command: pre exec" {
 
     try cmd.testingStart();
     try testing.expect(cmd.pid != null);
-    const exit = try cmd.wait(true);
-    try testing.expect(exit == .Exited);
-    try testing.expect(exit.Exited == 42);
+    const pid = cmd.wait(true);
+    try testing.expectEqual(cmd.pid, pid);
 }
 
 fn createTestStdout(dir: std.fs.Dir) !File {
@@ -641,9 +602,8 @@ test "Command: redirect stdout to file" {
 
     try cmd.testingStart();
     try testing.expect(cmd.pid != null);
-    const exit = try cmd.wait(true);
-    try testing.expect(exit == .Exited);
-    try testing.expectEqual(@as(u32, 0), @as(u32, exit.Exited));
+    const pid = cmd.wait(true);
+    try testing.expectEqual(cmd.pid, pid);
 
     // Read our stdout
     try stdout.seekTo(0);
@@ -676,9 +636,8 @@ test "Command: custom env vars" {
 
     try cmd.testingStart();
     try testing.expect(cmd.pid != null);
-    const exit = try cmd.wait(true);
-    try testing.expect(exit == .Exited);
-    try testing.expect(exit.Exited == 0);
+    const pid = cmd.wait(true);
+    try testing.expectEqual(cmd.pid, pid);
 
     // Read our stdout
     try stdout.seekTo(0);
@@ -712,9 +671,8 @@ test "Command: custom working directory" {
 
     try cmd.testingStart();
     try testing.expect(cmd.pid != null);
-    const exit = try cmd.wait(true);
-    try testing.expect(exit == .Exited);
-    try testing.expect(exit.Exited == 0);
+    const pid = cmd.wait(true);
+    try testing.expectEqual(cmd.pid, pid);
 
     // Read our stdout
     try stdout.seekTo(0);
@@ -754,9 +712,8 @@ test "Command: posix fork handles execveZ failure" {
 
     try cmd.testingStart();
     try testing.expect(cmd.pid != null);
-    const exit = try cmd.wait(true);
-    try testing.expect(exit == .Exited);
-    try testing.expect(exit.Exited == 1);
+    const pid = cmd.wait(true);
+    try testing.expectEqual(cmd.pid, pid);
 }
 
 // If cmd.start fails with error.ExecFailedInChild it's the _child_ process that is running. If it does not

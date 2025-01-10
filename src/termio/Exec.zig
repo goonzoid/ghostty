@@ -1204,8 +1204,8 @@ const Subprocess = struct {
     /// process and unset our running state.
     pub fn externalExit(self: *Subprocess) void {
         if (self.command) |*cmd| {
-            _ = cmd.wait(false) catch |err|
-                log.err("error waiting on subprocess: {}", .{err});
+            const ret = cmd.wait(false);
+            log.debug("wait result={}", .{ret});
         }
         self.command = null;
     }
