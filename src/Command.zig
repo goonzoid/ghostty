@@ -306,6 +306,7 @@ fn setupFd(src: File.Handle, target: i32) !void {
 }
 
 /// Wait for the command to exit and return information about how it exited.
+/// "block" is currently not respected on Windows.
 pub fn wait(self: Command, block: bool) i32 {
     if (comptime builtin.os.tag == .windows) {
         // Block until the process exits. This returns immediately if the
